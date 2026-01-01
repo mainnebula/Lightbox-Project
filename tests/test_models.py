@@ -1,8 +1,5 @@
 """Tests for Event model and serialization."""
 
-import json
-import pytest
-
 from lightbox.models import (
     Event,
     canonical_serialize,
@@ -143,6 +140,7 @@ class TestNowIso:
         result = now_iso()
         # Should be parseable as ISO format
         from datetime import datetime
+
         dt = datetime.fromisoformat(result.replace("Z", "+00:00"))
         assert dt is not None
 

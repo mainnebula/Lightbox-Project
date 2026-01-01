@@ -8,24 +8,18 @@ These tests verify the "done-done" criteria:
 """
 
 import json
+
 import pytest
 from click.testing import CliRunner
 
 from lightbox.cli import main
 from lightbox.core import Session
-from lightbox.integrity import verify_session, VerifyStatus
+from lightbox.integrity import VerifyStatus, verify_session
 from lightbox.storage import (
+    RedactionConfig,
     get_events_file,
     read_events,
-    RedactionConfig,
 )
-
-
-@pytest.fixture
-def temp_lightbox_dir(tmp_path, monkeypatch):
-    """Set up a temporary Lightbox directory."""
-    monkeypatch.setenv("LIGHTBOX_DIR", str(tmp_path))
-    return tmp_path
 
 
 @pytest.fixture
@@ -143,7 +137,7 @@ class TestOversizedContent:
         assert "_redacted" in str(event.output)
         # Content hash should be present
         assert event.content_hashes is not None
-        assert any("output" in k for k in event.content_hashes.keys())
+        assert any("output" in k for k in event.content_hashes)
 
     def test_oversized_replay_readable(self, temp_lightbox_dir, runner):
         """Replay with oversized content should show readable output."""
@@ -186,7 +180,9 @@ class TestErrorRecording:
         session = Session("error_replay")
         session.emit("good_tool", {}, {"ok": True})
         session.emit(
-            "bad_tool", {}, {},
+            "bad_tool",
+            {},
+            {},
             status="error",
             error={"message": "Something went wrong"},
         )
@@ -229,7 +225,8 @@ class TestAsyncSemantics:
 
         inv_id = session.emit_pending("failing_async", {"x": 1})
         session.emit_resolved(
-            inv_id, {},
+            inv_id,
+            {},
             status="error",
             error={"message": "Timeout"},
         )
@@ -248,14 +245,18 @@ class TestRetrySemantics:
 
         # First attempt fails
         e1 = session.emit(
-            "flaky_tool", {"x": 1}, {},
+            "flaky_tool",
+            {"x": 1},
+            {},
             status="error",
             error={"message": "Failed"},
         )
 
         # Retry succeeds
-        e2 = session.emit(
-            "flaky_tool", {"x": 1}, {"result": "ok"},
+        session.emit(
+            "flaky_tool",
+            {"x": 1},
+            {"result": "ok"},
             retry_of=e1.invocation_id,
         )
 

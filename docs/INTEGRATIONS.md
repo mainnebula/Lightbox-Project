@@ -10,7 +10,7 @@
 ### Installation
 
 ```bash
-pip install lightbox[langchain]
+pip install lightbox-rec[langchain]
 ```
 
 ### Quick Start
@@ -76,6 +76,21 @@ session = Session(redaction_config=config)
 agent = wrap(agent, session=session)
 ```
 
+### Canonical Output
+
+LangChain wraps tool outputs in message objects with metadata. Lightbox automatically
+extracts the semantic value and stores it in `canonical_output`:
+
+```python
+# What LangChain returns (stored in 'output')
+{"content": "sunny, 72°F", "type": "tool", "artifact": None, ...}
+
+# What Lightbox extracts (stored in 'canonical_output')
+"sunny, 72°F"
+```
+
+This makes CLI output and replays more readable without losing the raw data.
+
 ### Async Tool Handling
 
 LangChain async tools automatically produce paired events:
@@ -110,19 +125,20 @@ The handler uses locks for concurrent tool calls. Safe for:
 For tools outside framework interception:
 
 ```python
+from lightbox import Session
+
+# Explicit session (recommended)
+session = Session("my_session")
+session.emit("tool1", {"x": 1}, {"result": "ok"})
+session.emit("tool2", {"y": 2}, {"result": "done"})
+
+# Or use module-level API (auto-creates session)
 import lightbox
+lightbox.emit("my_custom_tool", {"input": "data"}, {"output": "result"})
 
-# Simple emit
-lightbox.emit(
-    "my_custom_tool",
-    {"input": "data"},
-    {"output": "result"}
-)
-
-# With session
+# Start explicit session for module-level calls
 session = lightbox.start_session("my_session")
-session.emit("tool1", {...}, {...})
-session.emit("tool2", {...}, {...})
+lightbox.emit("tool1", {"x": 1}, {"result": "ok"})
 ```
 
 ### Async Pattern
@@ -141,6 +157,23 @@ session.emit_resolved(
     inv_id, {},
     status="error",
     error={"message": "Something went wrong"}
+)
+```
+
+### Canonical Output
+
+When tool outputs include wrapper metadata, extract the semantic value:
+
+```python
+# Full output with framework metadata
+raw_output = {"content": "result", "metadata": {...}}
+
+# Record with extracted canonical value
+session.emit(
+    "my_tool",
+    {"query": "test"},
+    raw_output,
+    canonical_output="result"  # Clean value for display
 )
 ```
 

@@ -15,16 +15,10 @@ from lightbox.storage import read_events
 
 
 @pytest.fixture
-def temp_lightbox_dir(tmp_path, monkeypatch):
-    """Set up a temporary Lightbox directory."""
-    monkeypatch.setenv("LIGHTBOX_DIR", str(tmp_path))
-    return tmp_path
-
-
-@pytest.fixture
 def reset_global_session(monkeypatch):
     """Reset the global session between tests."""
     import lightbox.core
+
     monkeypatch.setattr(lightbox.core, "_current_session", None)
 
 

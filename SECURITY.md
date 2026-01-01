@@ -106,5 +106,5 @@ v1 uses SHA-256. This provides:
 
 ## Responsible Disclosure
 
-For security issues, please email [security contact] rather than opening
+For security issues, please email security@uselightbox.app rather than opening
 a public issue.

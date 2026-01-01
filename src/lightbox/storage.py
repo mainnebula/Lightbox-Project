@@ -20,19 +20,19 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from lightbox.models import (
+    LIGHTBOX_VERSION,
+    SCHEMA_VERSION,
     Event,
     SessionMetadata,
-    SCHEMA_VERSION,
-    LIGHTBOX_VERSION,
-    now_iso,
     compute_content_hash,
+    now_iso,
 )
-
 
 # Default max bytes for inline input/output before switching to hash-only
 DEFAULT_MAX_INLINE_BYTES = 64 * 1024  # 64KB
@@ -41,6 +41,7 @@ DEFAULT_MAX_INLINE_BYTES = 64 * 1024  # 64KB
 @dataclass
 class ReadResult:
     """Result of reading events, including any errors."""
+
     events: list[Event]
     truncated_line: str | None = None  # If last line was incomplete
     parse_errors: list[tuple[int, str]] = None  # (line_number, error_message)
@@ -114,7 +115,7 @@ def read_session_metadata(session_id: str) -> SessionMetadata | None:
     meta_file = get_meta_file(session_id)
     if not meta_file.exists():
         return None
-    with open(meta_file, "r", encoding="utf-8") as f:
+    with open(meta_file, encoding="utf-8") as f:
         return SessionMetadata.from_dict(json.load(f))
 
 
@@ -129,7 +130,7 @@ def append_event(session_id: str, event: Event) -> None:
     - fsync ensures durability
     - If process crashes mid-write, line will be truncated (detectable)
     """
-    session_dir = ensure_session_dir(session_id)
+    ensure_session_dir(session_id)
 
     # Write metadata on first event
     meta_file = get_meta_file(session_id)
@@ -181,7 +182,7 @@ def read_events_with_status(session_id: str) -> ReadResult:
     parse_errors = []
     truncated_line = None
 
-    with open(events_file, "r", encoding="utf-8") as f:
+    with open(events_file, encoding="utf-8") as f:
         fcntl.flock(f.fileno(), fcntl.LOCK_SH)
         try:
             lines = f.readlines()
@@ -234,7 +235,7 @@ def iter_events(session_id: str) -> Iterator[Event]:
     if not events_file.exists():
         return
 
-    with open(events_file, "r", encoding="utf-8") as f:
+    with open(events_file, encoding="utf-8") as f:
         fcntl.flock(f.fileno(), fcntl.LOCK_SH)
         try:
             for line in f:
@@ -314,6 +315,7 @@ def get_session_info(session_id: str) -> dict | None:
 
 # --- Redaction and Size Bounds ---
 
+
 @dataclass
 class RedactionConfig:
     """Configuration for input/output redaction.
@@ -323,6 +325,7 @@ class RedactionConfig:
         redact_keys: Keys to always redact (e.g., ["api_key", "token", "password"])
         hash_oversized: If True, store hash+size for oversized content
     """
+
     max_inline_bytes: int = DEFAULT_MAX_INLINE_BYTES
     redact_keys: list[str] = None
     hash_oversized: bool = True

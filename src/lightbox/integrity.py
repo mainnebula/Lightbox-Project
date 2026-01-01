@@ -18,16 +18,17 @@ FAILURE TYPES (distinct exit codes):
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Iterator
 
 from lightbox.models import Event, compute_hash
-from lightbox.storage import read_events_with_status, session_exists, ReadResult
+from lightbox.storage import read_events_with_status, session_exists
 
 
 class VerifyStatus(IntEnum):
     """Exit codes for verification results."""
+
     VALID = 0
     TAMPERED = 1
     TRUNCATED = 2
@@ -38,6 +39,7 @@ class VerifyStatus(IntEnum):
 @dataclass
 class VerificationResult:
     """Result of verifying a session's hash chain."""
+
     status: VerifyStatus
     valid: bool  # Convenience: True only if status == VALID
     event_count: int
@@ -109,7 +111,9 @@ def verify_session(session_id: str) -> VerificationResult:
             valid=False,
             event_count=len(read_result.events),
             error_message="Last event truncated (incomplete write detected)",
-            truncated_line=read_result.truncated_line[:100] + "..." if len(read_result.truncated_line) > 100 else read_result.truncated_line,
+            truncated_line=read_result.truncated_line[:100] + "..."
+            if len(read_result.truncated_line) > 100
+            else read_result.truncated_line,
         )
 
     # Check for parse errors (corruption in middle of file)
@@ -167,16 +171,6 @@ def verify_session(session_id: str) -> VerificationResult:
         valid=True,
         event_count=len(events),
     )
-
-
-def _is_valid_json(s: str) -> bool:
-    """Check if a string is valid JSON."""
-    import json
-    try:
-        json.loads(s)
-        return True
-    except json.JSONDecodeError:
-        return False
 
 
 def verify_session_streaming(session_id: str) -> Iterator[tuple[int, bool, str | None]]:

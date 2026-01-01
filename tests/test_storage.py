@@ -1,11 +1,7 @@
 """Tests for storage layer."""
 
 import json
-import os
-import tempfile
 from pathlib import Path
-
-import pytest
 
 from lightbox.models import Event, compute_hash
 from lightbox.storage import (
@@ -19,13 +15,6 @@ from lightbox.storage import (
     read_events,
     session_exists,
 )
-
-
-@pytest.fixture
-def temp_lightbox_dir(tmp_path, monkeypatch):
-    """Set up a temporary Lightbox directory."""
-    monkeypatch.setenv("LIGHTBOX_DIR", str(tmp_path))
-    return tmp_path
 
 
 def make_event(session_id: str, invocation_num: int, prev_hash: str | None = None) -> Event:

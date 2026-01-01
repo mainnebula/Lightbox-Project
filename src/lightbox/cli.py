@@ -30,24 +30,21 @@ import click
 
 from lightbox import __version__
 from lightbox.animation import (
-    startup_animation,
-    replay_header,
-    replay_event,
-    replay_footer,
-    spinner,
-    progress_bar,
-    hidden_cursor,
-    colorize,
-    CLEAR_LINE,
-    GREEN,
-    RED,
-    YELLOW,
+    BOLD,
     CYAN,
     DIM,
-    BOLD,
+    GREEN,
     MAGENTA,
+    RED,
+    YELLOW,
+    colorize,
+    replay_event,
+    replay_footer,
+    replay_header,
+    spinner,
+    startup_animation,
 )
-from lightbox.integrity import verify_session, VerifyStatus
+from lightbox.integrity import VerifyStatus, verify_session
 from lightbox.models import Event
 from lightbox.storage import (
     get_session_info,
@@ -64,9 +61,7 @@ def _colors_enabled() -> bool:
     if os.environ.get("NO_COLOR"):
         return False
     # Also check if stdout is a TTY
-    if not sys.stdout.isatty():
-        return False
-    return True
+    return sys.stdout.isatty()
 
 
 def format_timestamp(iso_timestamp: str) -> str:
@@ -139,10 +134,18 @@ def format_event_detail(event: Event) -> str:
         for input_line in input_json.split("\n"):
             lines.append(f"      {input_line}")
 
-    # Output
+    # Canonical output (if available, show prominently)
+    if event.canonical_output is not None:
+        canonical_json = json.dumps(event.canonical_output, indent=2)
+        lines.append(colorize("    Value:", GREEN))
+        for canonical_line in canonical_json.split("\n"):
+            lines.append(f"      {colorize(canonical_line, GREEN)}")
+
+    # Raw output (show as secondary if canonical exists)
     if event.output:
+        label = "    Raw output:" if event.canonical_output is not None else "    Output:"
         output_json = json.dumps(event.output, indent=2)
-        lines.append(colorize("    Output:", DIM))
+        lines.append(colorize(label, DIM))
         for output_line in output_json.split("\n"):
             lines.append(f"      {output_line}")
 
@@ -168,6 +171,12 @@ def main(ctx):
     if ctx.invoked_subcommand is None:
         startup_animation(version=__version__, duration=3.0)
         click.echo("Run 'lightbox --help' for available commands.\n")
+        click.echo(colorize("Quick start:", BOLD))
+        click.echo(f"  {colorize('lightbox list', CYAN)}              List all sessions")
+        click.echo(f"  {colorize('lightbox show --last', CYAN)}       Show most recent session")
+        click.echo(f"  {colorize('lightbox replay --last', CYAN)}     Replay most recent session")
+        click.echo(f"  {colorize('lightbox verify <session>', CYAN)}  Verify integrity")
+        click.echo()
 
 
 @main.command("list")
@@ -195,17 +204,43 @@ def list_cmd():
             click.echo()
 
 
+def _resolve_session(session: str | None, use_last: bool) -> str | None:
+    """Resolve session ID, handling --last flag."""
+    if use_last:
+        sessions = list_sessions()
+        if not sessions:
+            click.echo("No sessions found.", err=True)
+            return None
+        return sessions[0]
+    return session
+
+
 @main.command()
-@click.argument("session")
+@click.argument("session", required=False)
+@click.option("--last", "-l", is_flag=True, help="Use most recent session")
 @click.option("--raw", is_flag=True, help="Output raw JSON")
 @click.option("--verbose", "-v", is_flag=True, help="Show input/output details")
-def show(session: str, raw: bool, verbose: bool):
+@click.option("--inv", "invocation", help="Filter to specific invocation ID")
+def show(session: str | None, last: bool, raw: bool, verbose: bool, invocation: str | None):
     """Show events in a session."""
+    session = _resolve_session(session, last)
+    if session is None:
+        if not last:
+            click.echo("Error: Missing argument 'SESSION'. Use --last for most recent.", err=True)
+        sys.exit(4)
+
     if not session_exists(session):
         click.echo(f"Session '{session}' not found.", err=True)
         sys.exit(1)
 
     events = read_events(session)
+
+    # Filter by invocation ID if specified
+    if invocation:
+        events = [e for e in events if e.invocation_id == invocation]
+        if not events:
+            click.echo(f"No events found for invocation '{invocation}'.", err=True)
+            sys.exit(1)
 
     if raw:
         for event in events:
@@ -220,11 +255,16 @@ def show(session: str, raw: bool, verbose: bool):
     meta = read_session_metadata(session)
     click.echo(f"\n{colorize('Session:', BOLD)} {session}")
     if meta:
-        click.echo(f"{colorize('Schema:', DIM)} v{meta.schema_version} (lightbox {meta.lightbox_version})")
+        click.echo(
+            f"{colorize('Schema:', DIM)} v{meta.schema_version} (lightbox {meta.lightbox_version})"
+        )
+    if invocation:
+        click.echo(f"{colorize('Filter:', MAGENTA)} {invocation}")
     click.echo(f"{colorize('Events:', BOLD)} {len(events)}\n")
 
     for event in events:
-        if verbose:
+        # When filtering by invocation, always show verbose details
+        if verbose or invocation:
             click.echo(format_event_detail(event))
         else:
             click.echo(format_event_line(event, show_hash=True))
@@ -232,15 +272,22 @@ def show(session: str, raw: bool, verbose: bool):
 
 
 @main.command()
-@click.argument("session")
+@click.argument("session", required=False)
+@click.option("--last", "-l", is_flag=True, help="Use most recent session")
 @click.option("--fast", is_flag=True, help="Disable animations")
 @click.option("--raw", is_flag=True, help="Output raw JSON")
-def replay(session: str, fast: bool, raw: bool):
+def replay(session: str | None, last: bool, fast: bool, raw: bool):
     """Animated playback of a session.
 
     Replays events with timing delays and cassette tape animation.
     Use --fast to disable animations, --raw for JSON output.
     """
+    session = _resolve_session(session, last)
+    if session is None:
+        if not last:
+            click.echo("Error: Missing argument 'SESSION'. Use --last for most recent.", err=True)
+        sys.exit(4)
+
     if not session_exists(session):
         click.echo(f"Session '{session}' not found.", err=True)
         sys.exit(1)
@@ -275,8 +322,12 @@ def replay(session: str, fast: bool, raw: bool):
             if len(input_preview) > 60:
                 input_preview = input_preview[:57] + "..."
 
-        if event.output:
-            output_preview = json.dumps(event.output)
+        # Prefer canonical_output for cleaner replay display
+        output_to_show = (
+            event.canonical_output if event.canonical_output is not None else event.output
+        )
+        if output_to_show:
+            output_preview = json.dumps(output_to_show)
             if len(output_preview) > 60:
                 output_preview = output_preview[:57] + "..."
 
@@ -317,8 +368,9 @@ def replay(session: str, fast: bool, raw: bool):
 
 
 @main.command()
-@click.argument("session")
-def verify(session: str):
+@click.argument("session", required=False)
+@click.option("--last", "-l", is_flag=True, help="Use most recent session")
+def verify(session: str | None, last: bool):
     """Verify hash chain integrity.
 
     Checks that the session's event log has not been tampered with.
@@ -330,6 +382,12 @@ def verify(session: str):
         3: Parse error - invalid JSON in event file
         4: Not found - session doesn't exist
     """
+    session = _resolve_session(session, last)
+    if session is None:
+        if not last:
+            click.echo("Error: Missing argument 'SESSION'. Use --last for most recent.", err=True)
+        sys.exit(4)
+
     # Show spinner while verifying
     with spinner(f"Verifying {session}", style="dots") as s:
         # Brief animation

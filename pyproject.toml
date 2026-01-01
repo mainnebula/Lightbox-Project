@@ -3,22 +3,23 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "lightbox"
+name = "lightbox-rec"
 version = "0.1.0"
 description = "Flight recorder for AI agents - append-only, tamper-evident tool execution logs"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 authors = [
-    { name = "Robert Keenan" }
+    { name = "Robert Keenan", email = "rob@uselightbox.app" }
 ]
-keywords = ["ai", "agents", "logging", "langchain", "observability"]
+keywords = ["ai", "agents", "logging", "langchain", "observability", "tracing"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
 ]
 dependencies = [
     "click>=8.0",
@@ -31,17 +32,23 @@ langchain = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
 ]
 all = [
-    "lightbox[langchain,dev]",
+    "lightbox-rec[langchain,dev]",
 ]
 
 [project.scripts]
 lightbox = "lightbox.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/robertkeenan/lightbox"
+Homepage = "https://uselightbox.app"
+Documentation = "https://github.com/robertkeenan/lightbox#readme"
 Repository = "https://github.com/robertkeenan/lightbox"
+Issues = "https://github.com/robertkeenan/lightbox/issues"
+Changelog = "https://github.com/robertkeenan/lightbox/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lightbox"]
@@ -59,3 +66,36 @@ exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lightbox"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+files = ["src/lightbox"]
+
+[[tool.mypy.overrides]]
+module = "langchain_core.*"
+ignore_missing_imports = true

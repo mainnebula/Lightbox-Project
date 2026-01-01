@@ -1,5 +1,10 @@
 # Lightbox
 
+[![PyPI version](https://badge.fury.io/py/lightbox-rec.svg)](https://badge.fury.io/py/lightbox-rec)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/robertkeenan/lightbox/actions/workflows/test.yml/badge.svg)](https://github.com/robertkeenan/lightbox/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Flight recorder for AI agents. Append-only, tamper-evident tool execution logs.
 
 ## What it is / isn't
@@ -13,7 +18,7 @@ Flight recorder for AI agents. Append-only, tamper-evident tool execution logs.
 ## Quickstart
 
 ```bash
-pip install lightbox
+pip install lightbox-rec
 ```
 
 ### SDK Usage
@@ -76,13 +81,13 @@ config = RedactionConfig(
 session = Session(redaction_config=config)
 ```
 
-## Docs
+## Documentation
 
-- [FORMAT.md](FORMAT.md) - Event schema and canonicalization rules
-- [SECURITY.md](SECURITY.md) - Threat model
-- [PRIVACY.md](PRIVACY.md) - Redaction guide
-- [INTEGRATIONS.md](INTEGRATIONS.md) - LangChain usage
+- [Event Format](docs/FORMAT.md) - Event schema and canonicalization rules
+- [Integrations](docs/INTEGRATIONS.md) - LangChain and framework usage
+- [Security](SECURITY.md) - Threat model and verification
+- [Changelog](CHANGELOG.md) - Version history
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE)

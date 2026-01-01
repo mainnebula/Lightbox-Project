@@ -48,6 +48,7 @@ is hash-chained to the previous event, creating a tamper-evident log.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `canonical_output` | any | Extracted semantic value from framework wrappers |
 | `parent_invocation` | string | ID of parent call for nested invocations |
 | `actor` | string | Direct invoker (agent/user/service) |
 | `originating_actor` | string | Session initiator |
@@ -67,6 +68,7 @@ is hash-chained to the previous event, creating a tamper-evident log.
   "tool": "send_email",
   "input": {"to": "user@example.com", "subject": "Hello"},
   "output": {"success": true, "message_id": "msg_123"},
+  "canonical_output": true,
   "status": "complete",
   "timestamp_start": "2025-01-15T10:23:01.123+00:00",
   "timestamp_end": "2025-01-15T10:23:01.456+00:00",
@@ -74,6 +76,45 @@ is hash-chained to the previous event, creating a tamper-evident log.
   "hash": "b4e3d2..."
 }
 ```
+
+## Canonical Output
+
+The `canonical_output` field extracts the semantic value from framework-specific output
+wrappers. This provides a clean, human-readable representation of what a tool actually
+returned, separate from framework metadata.
+
+### When It's Used
+
+Frameworks like LangChain wrap tool outputs in message objects with extra metadata:
+
+```python
+# Raw LangChain output (stored in 'output')
+{
+  "content": "The weather is sunny",
+  "type": "tool",
+  "artifact": null,
+  "additional_kwargs": {}
+}
+
+# Canonical output (extracted value)
+"The weather is sunny"
+```
+
+### Extraction Rules
+
+| Output Type | Extracted Value |
+|-------------|-----------------|
+| Object with `.content` attribute | The `content` value |
+| Dict with `content` + framework keys | The `content` value |
+| String | The string itself |
+| Primitive (int, bool, etc.) | The primitive value |
+| Other | Not extracted (field omitted) |
+
+### Display Behavior
+
+- **CLI `show`/`replay`**: Shows `canonical_output` as "Value:" when present
+- **Raw output**: Always preserved for full debugging context
+- **Hash chain**: Both fields included in hash computation
 
 ## Canonicalization Rules
 

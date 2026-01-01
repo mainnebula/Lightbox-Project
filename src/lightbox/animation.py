@@ -9,15 +9,13 @@ from __future__ import annotations
 import os
 import sys
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 # ANSI escape codes
 CLEAR_LINE = "\033[2K\r"
-CLEAR_SCREEN = "\033[2J\033[H"
 HIDE_CURSOR = "\033[?25l"
 SHOW_CURSOR = "\033[?25h"
-MOVE_UP = "\033[A"
 
 # Colors
 RED = "\033[91m"
@@ -33,8 +31,6 @@ RESET = "\033[0m"
 # Spinner characters
 SPINNER_DOTS = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 SPINNER_SIMPLE = ["─", "╲", "│", "╱"]
-SPINNER_BLOCKS = ["▖", "▘", "▝", "▗"]
-SPINNER_ARROWS = ["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"]
 
 # Progress bar characters
 PROGRESS_FILLED = "█"
@@ -46,9 +42,7 @@ def _colors_enabled() -> bool:
     """Check if colors/animations should be used."""
     if os.environ.get("NO_COLOR"):
         return False
-    if not sys.stdout.isatty():
-        return False
-    return True
+    return sys.stdout.isatty()
 
 
 def colorize(text: str, color: str) -> str:
@@ -73,6 +67,7 @@ def hidden_cursor():
 
 
 # --- Cassette Tape Animation ---
+
 
 def render_cassette_frame(frame_num: int, mode: str = "REC", label: str = "") -> str:
     """Render a single cassette animation frame.
@@ -156,6 +151,7 @@ def cassette_animation(duration: float = 2.0, mode: str = "REC", label: str = ""
 
 # --- Spinner ---
 
+
 class Spinner:
     """Animated spinner for long-running operations."""
 
@@ -164,11 +160,8 @@ class Spinner:
         self.chars = {
             "dots": SPINNER_DOTS,
             "simple": SPINNER_SIMPLE,
-            "blocks": SPINNER_BLOCKS,
-            "arrows": SPINNER_ARROWS,
         }.get(style, SPINNER_DOTS)
         self.frame = 0
-        self._running = False
 
     def _render(self) -> str:
         char = self.chars[self.frame % len(self.chars)]
@@ -230,6 +223,7 @@ def spinner(message: str = "Working", style: str = "dots"):
 
 # --- Progress Bar ---
 
+
 def progress_bar(
     current: int,
     total: int,
@@ -246,11 +240,7 @@ def progress_bar(
         prefix: Text before bar
         suffix: Text after bar
     """
-    if total == 0:
-        percent = 100
-    else:
-        percent = int(100 * current / total)
-
+    percent = 100 if total == 0 else int(100 * current / total)
     filled = int(width * current / total) if total > 0 else width
 
     if _colors_enabled():
@@ -293,8 +283,6 @@ LIGHTBOX_LOGO = """\
   | |  | |_ _| || |_   _| _ )/ _ \\ \\/ /
   | |__| || || __ | | | | _ \\ (_) >  <
   |____|_|___|_||_| |_| |___/\\___/_/\\_\\"""
-
-LIGHTBOX_LOGO_SIMPLE = "LIGHTBOX"
 
 
 def startup_animation(version: str = "", duration: float = 3.0) -> None:
@@ -365,7 +353,9 @@ def replay_header(session_id: str, event_count: int) -> None:
             if frame > 0:
                 sys.stdout.write("\033[8A")
 
-            sys.stdout.write(render_cassette_frame(frame, "PLAY", f"{session_id} ({event_count} events)"))
+            sys.stdout.write(
+                render_cassette_frame(frame, "PLAY", f"{session_id} ({event_count} events)")
+            )
             sys.stdout.write("\n")
             sys.stdout.flush()
             time.sleep(0.1)

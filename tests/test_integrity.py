@@ -1,18 +1,10 @@
 """Tests for integrity verification."""
 
 import json
-import pytest
 
-from lightbox.integrity import verify_event, verify_session, VerificationResult, VerifyStatus
+from lightbox.integrity import VerificationResult, VerifyStatus, verify_event, verify_session
 from lightbox.models import Event, compute_hash
-from lightbox.storage import append_event, get_events_file, read_events
-
-
-@pytest.fixture
-def temp_lightbox_dir(tmp_path, monkeypatch):
-    """Set up a temporary Lightbox directory."""
-    monkeypatch.setenv("LIGHTBOX_DIR", str(tmp_path))
-    return tmp_path
+from lightbox.storage import append_event, get_events_file
 
 
 def make_chained_events(session_id: str, count: int) -> list[Event]:
@@ -24,10 +16,10 @@ def make_chained_events(session_id: str, count: int) -> list[Event]:
         event = Event(
             schema_version="1",
             session_id=session_id,
-            invocation_id=f"inv_{i+1:05d}",
-            tool=f"tool_{i+1}",
+            invocation_id=f"inv_{i + 1:05d}",
+            tool=f"tool_{i + 1}",
             input={"num": i + 1},
-            output={"result": f"output_{i+1}"},
+            output={"result": f"output_{i + 1}"},
             status="complete",
             timestamp_start=f"2025-01-15T10:{i:02d}:00.000+00:00",
             timestamp_end=f"2025-01-15T10:{i:02d}:01.000+00:00",
@@ -186,17 +178,15 @@ class TestVerifySession:
 class TestVerificationResult:
     def test_bool_conversion(self):
         valid = VerificationResult(status=VerifyStatus.VALID, valid=True, event_count=5)
-        invalid = VerificationResult(status=VerifyStatus.TAMPERED, valid=False, event_count=5, error_message="test")
+        invalid = VerificationResult(
+            status=VerifyStatus.TAMPERED, valid=False, event_count=5, error_message="test"
+        )
 
         assert bool(valid) is True
         assert bool(invalid) is False
 
         # Can use in if statements
-        if valid:
-            passed = True
-        else:
-            passed = False
-        assert passed
+        assert valid  # Truthy check
 
     def test_exit_code(self):
         valid = VerificationResult(status=VerifyStatus.VALID, valid=True, event_count=5)

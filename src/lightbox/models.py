@@ -18,9 +18,8 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
-
 
 # Schema version - bump this when canonicalization or event structure changes
 SCHEMA_VERSION = "1"
@@ -28,7 +27,8 @@ SCHEMA_VERSION = "1"
 
 def get_lightbox_version() -> str:
     """Get the package version from metadata."""
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
+
     try:
         return version("lightbox")
     except PackageNotFoundError:
@@ -43,6 +43,7 @@ EventStatus = Literal["pending", "complete", "error"]
 
 class CanonicalizeError(Exception):
     """Raised when data cannot be safely canonicalized."""
+
     pass
 
 
@@ -60,8 +61,7 @@ def _check_no_floats(obj: Any, path: str = "") -> None:
                 f"Float at '{path}' is NaN or Inf, which cannot be serialized deterministically"
             )
         raise CanonicalizeError(
-            f"Float at '{path}' is not allowed. Use string representation for decimals. "
-            f"Got: {obj}"
+            f"Float at '{path}' is not allowed. Use string representation for decimals. Got: {obj}"
         )
     elif isinstance(obj, dict):
         for k, v in obj.items():
@@ -79,6 +79,7 @@ class Event:
     with what inputs, and what the result was. Optional fields support advanced
     use cases like nested calls, actor tracking, and streaming.
     """
+
     # Required fields
     schema_version: str  # Always SCHEMA_VERSION
     session_id: str
@@ -101,6 +102,7 @@ class Event:
     total_bytes: int | None = None
     content_hashes: dict[str, str] | None = None
     retry_of: str | None = None  # Link to prior invocation_id if this is a retry
+    canonical_output: Any | None = None  # Extracted semantic value from framework wrappers
 
     def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary, excluding None values for optional fields."""
@@ -134,6 +136,8 @@ class Event:
             result["content_hashes"] = self.content_hashes
         if self.retry_of is not None:
             result["retry_of"] = self.retry_of
+        if self.canonical_output is not None:
+            result["canonical_output"] = self.canonical_output
         return result
 
     def to_dict_for_hashing(self) -> dict[str, Any]:
@@ -165,6 +169,7 @@ class Event:
             total_bytes=data.get("total_bytes"),
             content_hashes=data.get("content_hashes"),
             retry_of=data.get("retry_of"),
+            canonical_output=data.get("canonical_output"),
         )
 
 
@@ -219,12 +224,13 @@ def compute_content_hash(content: bytes | str) -> str:
 
 def now_iso() -> str:
     """Return current UTC time in ISO 8601 format."""
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
 @dataclass
 class SessionMetadata:
     """Metadata stored at session level (meta.json)."""
+
     session_id: str
     schema_version: str
     lightbox_version: str

@@ -34,8 +34,8 @@ from __future__ import annotations
 import secrets
 from typing import Any
 
-from lightbox.models import Event, EventStatus, SCHEMA_VERSION, compute_hash, now_iso
-from lightbox.storage import append_event, read_events, RedactionConfig, apply_redaction
+from lightbox.models import SCHEMA_VERSION, Event, EventStatus, compute_hash, now_iso
+from lightbox.storage import RedactionConfig, append_event, apply_redaction, read_events
 
 
 def generate_session_id() -> str:
@@ -107,6 +107,7 @@ class Session:
         total_bytes: int | None = None,
         content_hashes: dict[str, str] | None = None,
         retry_of: str | None = None,
+        canonical_output: Any | None = None,
     ) -> Event:
         """Emit a complete tool execution event.
 
@@ -126,6 +127,7 @@ class Session:
             total_bytes: For streaming, total byte count
             content_hashes: Hashes for redacted/large payloads
             retry_of: Invocation ID of prior attempt if this is a retry
+            canonical_output: Extracted semantic value (e.g., from framework wrappers)
 
         Returns:
             The recorded Event
@@ -167,6 +169,7 @@ class Session:
             total_bytes=total_bytes,
             content_hashes=merged_hashes,
             retry_of=retry_of,
+            canonical_output=canonical_output,
         )
 
         # Compute hash
@@ -262,6 +265,7 @@ class Session:
         chunk_count: int | None = None,
         total_bytes: int | None = None,
         content_hashes: dict[str, str] | None = None,
+        canonical_output: Any | None = None,
     ) -> Event:
         """Emit a resolution event for a pending async call.
 
@@ -277,6 +281,7 @@ class Session:
             chunk_count: For streaming, number of chunks
             total_bytes: For streaming, total byte count
             content_hashes: Hashes for redacted/large payloads
+            canonical_output: Extracted semantic value (e.g., from framework wrappers)
 
         Returns:
             The recorded resolution Event
@@ -319,6 +324,7 @@ class Session:
             chunk_count=chunk_count,
             total_bytes=total_bytes,
             content_hashes=merged_hashes,
+            canonical_output=canonical_output,
         )
 
         # Compute hash

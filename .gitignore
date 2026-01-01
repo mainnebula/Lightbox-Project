@@ -50,3 +50,10 @@ Thumbs.db
 
 # Claude Code
 .agent/
+.claude/
+
+# Linting
+.ruff_cache/
+
+# Generated example sessions
+examples/sessions/

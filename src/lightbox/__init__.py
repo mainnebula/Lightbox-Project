@@ -4,7 +4,7 @@ Lightbox records tool execution events as append-only, tamper-evident records.
 It captures what external actions an agent took, not internal reasoning.
 """
 
-from importlib.metadata import version, PackageNotFoundError
+from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("lightbox")
@@ -14,11 +14,11 @@ except PackageNotFoundError:
 from lightbox.core import (
     Session,
     emit,
-    start_session,
     get_current_session,
+    start_session,
 )
+from lightbox.integrity import VerificationResult, VerifyStatus, verify_session
 from lightbox.models import Event
-from lightbox.integrity import verify_session, VerificationResult, VerifyStatus
 from lightbox.storage import RedactionConfig
 
 __all__ = [

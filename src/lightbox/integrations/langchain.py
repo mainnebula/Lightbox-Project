@@ -31,6 +31,7 @@ Or with explicit session:
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from typing import Any
 from uuid import UUID
@@ -55,6 +56,43 @@ def _ensure_langchain():
             "LangChain integration requires langchain-core. "
             "Install with: pip install lightbox[langchain]"
         )
+
+
+def _extract_canonical_output(output: Any) -> Any:
+    """Extract the semantic value from a LangChain output wrapper.
+
+    LangChain tool outputs are often wrapped in message objects like ToolMessage
+    with metadata (additional_kwargs, artifact, etc.). This extracts just the
+    actual return value for cleaner logs.
+
+    Args:
+        output: The raw output from a LangChain tool
+
+    Returns:
+        The extracted canonical value, or the original if no extraction needed
+    """
+    # Handle LangChain message types (ToolMessage, AIMessage, etc.)
+    if hasattr(output, "content"):
+        return output.content
+
+    # Handle dicts that look like serialized messages
+    if (
+        isinstance(output, dict)
+        and "content" in output
+        and any(k in output for k in ("additional_kwargs", "artifact", "type"))
+    ):
+        return output["content"]
+
+    # Handle plain strings and other primitives
+    if isinstance(output, (str, int, bool, type(None))):
+        return output
+
+    # Handle lists (might be list of messages)
+    if isinstance(output, list) and output and hasattr(output[0], "content"):
+        return [_extract_canonical_output(item) for item in output]
+
+    # Return as-is if no extraction pattern matched
+    return output
 
 
 class LightboxCallbackHandler(BaseCallbackHandler):
@@ -118,10 +156,7 @@ class LightboxCallbackHandler(BaseCallbackHandler):
         tool_name = serialized.get("name", "unknown_tool")
 
         # Prefer structured inputs over input_str
-        if inputs is not None:
-            tool_input = inputs
-        else:
-            tool_input = {"input": input_str}
+        tool_input = inputs if inputs is not None else {"input": input_str}
 
         # Get parent invocation ID if this is a nested call
         parent_inv = None
@@ -161,7 +196,10 @@ class LightboxCallbackHandler(BaseCallbackHandler):
             return
 
         try:
-            # Convert output to dict
+            # Extract canonical output (the actual value) from framework wrappers
+            canonical = _extract_canonical_output(output)
+
+            # Convert full output to dict for raw storage
             if isinstance(output, dict):
                 output_dict = output
             elif hasattr(output, "model_dump"):
@@ -171,7 +209,12 @@ class LightboxCallbackHandler(BaseCallbackHandler):
             else:
                 output_dict = {"output": str(output)}
 
-            self.session.emit_resolved(inv_id, output_dict, status="complete")
+            self.session.emit_resolved(
+                inv_id,
+                output_dict,
+                status="complete",
+                canonical_output=canonical,
+            )
         except Exception:
             # Don't crash the chain on recording errors
             pass
@@ -194,7 +237,7 @@ class LightboxCallbackHandler(BaseCallbackHandler):
             # No matching pending event - skip
             return
 
-        try:
+        with contextlib.suppress(Exception):
             self.session.emit_resolved(
                 inv_id,
                 {},
@@ -204,9 +247,6 @@ class LightboxCallbackHandler(BaseCallbackHandler):
                     "message": str(error),
                 },
             )
-        except Exception:
-            # Don't crash the chain on recording errors
-            pass
 
     # Explicitly do NOT implement these - we don't capture LLM/chain events
     # on_llm_start, on_llm_end, on_llm_error

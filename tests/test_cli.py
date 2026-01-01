@@ -1,19 +1,13 @@
 """Tests for CLI commands."""
 
 import json
+
 import pytest
 from click.testing import CliRunner
 
 from lightbox.cli import main
 from lightbox.core import Session
 from lightbox.storage import get_events_file
-
-
-@pytest.fixture
-def temp_lightbox_dir(tmp_path, monkeypatch):
-    """Set up a temporary Lightbox directory."""
-    monkeypatch.setenv("LIGHTBOX_DIR", str(tmp_path))
-    return tmp_path
 
 
 @pytest.fixture
