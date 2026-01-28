@@ -368,6 +368,46 @@ def replay(session: str | None, last: bool, fast: bool, raw: bool):
 
 
 @main.command()
+@click.option("--port", "-p", default=8780, help="Port to listen on")
+@click.option("--host", "-H", default="127.0.0.1", help="Host to bind to")
+@click.option("--no-browser", is_flag=True, help="Don't open browser on launch")
+def gui(port: int, host: str, no_browser: bool):
+    """Launch the web dashboard.
+
+    Opens a local web interface for browsing sessions, viewing event
+    timelines, and verifying integrity.
+    """
+    try:
+        from lightbox.web.app import create_app
+    except ImportError:
+        click.echo(
+            "Lightbox GUI requires Flask. Install with: pip install lightbox-rec[gui]",
+            err=True,
+        )
+        sys.exit(1)
+
+    import threading
+    import webbrowser
+
+    app = create_app()
+    url = f"http://{host}:{port}"
+
+    click.echo(f"\n{colorize('Lightbox Dashboard', BOLD)}")
+    click.echo(f"  {colorize(url, CYAN)}")
+    click.echo(f"  Press {colorize('Ctrl+C', DIM)} to stop\n")
+
+    if not no_browser:
+        def open_browser():
+            import time
+            time.sleep(1.0)
+            webbrowser.open(url)
+
+        threading.Thread(target=open_browser, daemon=True).start()
+
+    app.run(host=host, port=port, debug=False)
+
+
+@main.command()
 @click.argument("session", required=False)
 @click.option("--last", "-l", is_flag=True, help="Use most recent session")
 def verify(session: str | None, last: bool):

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lightbox Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1 class="logo">
+                <span class="logo-icon">&#9673;</span>
+                Lightbox
+            </h1>
+            <span class="tagline">Flight recorder for AI agents</span>
+        </div>
+        <div id="connection-status" class="status-bar hidden">
+            <span class="status-dot"></span>
+            <span class="status-text">Connected</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- Session List View -->
+        <section id="session-list-view">
+            <div class="view-header">
+                <h2>Sessions</h2>
+                <button id="refresh-btn" class="btn btn-secondary" onclick="loadSessions()">Refresh</button>
+            </div>
+            <div id="sessions-loading" class="loading">Loading sessions...</div>
+            <div id="sessions-empty" class="empty-state hidden">
+                <p>No sessions found.</p>
+                <p class="hint">Record some tool calls to get started.</p>
+            </div>
+            <table id="sessions-table" class="hidden">
+                <thead>
+                    <tr>
+                        <th>Session ID</th>
+                        <th>Events</th>
+                        <th>Tools</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="sessions-tbody"></tbody>
+            </table>
+        </section>
+
+        <!-- Session Detail View -->
+        <section id="session-detail-view" class="hidden">
+            <div class="view-header">
+                <button class="btn btn-back" onclick="showSessionList()">&larr; Back</button>
+                <h2 id="detail-session-id"></h2>
+                <div class="view-actions">
+                    <button id="verify-btn" class="btn btn-primary" onclick="verifySession()">Verify</button>
+                    <button id="live-btn" class="btn btn-secondary" onclick="toggleLive()">Live</button>
+                </div>
+            </div>
+
+            <!-- Verification result -->
+            <div id="verify-result" class="hidden"></div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <input type="text" id="filter-tool" placeholder="Filter by tool name..." oninput="applyFilters()">
+                <select id="filter-status" onchange="applyFilters()">
+                    <option value="">All statuses</option>
+                    <option value="complete">Complete</option>
+                    <option value="error">Error</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </div>
+
+            <!-- Event Timeline -->
+            <div id="event-timeline"></div>
+            <div id="events-loading" class="loading hidden">Loading events...</div>
+            <div id="events-empty" class="empty-state hidden">
+                <p>No events in this session.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -29,6 +29,12 @@ dependencies = [
 langchain = [
     "langchain-core>=0.3",
 ]
+gui = [
+    "flask>=3.0",
+]
+moltbot = [
+    "flask>=3.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
@@ -37,11 +43,12 @@ dev = [
     "pre-commit>=3.7",
 ]
 all = [
-    "lightbox-rec[langchain,dev]",
+    "lightbox-rec[langchain,gui,moltbot,dev]",
 ]
 
 [project.scripts]
 lightbox = "lightbox.cli:main"
+lightbox-gui = "lightbox.web.app:main"
 
 [project.urls]
 Homepage = "https://uselightbox.app"
@@ -98,4 +105,8 @@ files = ["src/lightbox"]
 
 [[tool.mypy.overrides]]
 module = "langchain_core.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "flask.*"
 ignore_missing_imports = true

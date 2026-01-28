@@ -177,11 +177,95 @@ session.emit(
 )
 ```
 
+## Moltbot
+
+Moltbot is a TypeScript/Node.js agent that executes tools via subprocesses (including Python scripts). The Lightbox integration provides wrapper functions that agents can call before/after tool execution.
+
+### Installation
+
+```bash
+pip install lightbox-rec[moltbot]
+```
+
+### Quick Start — Record a Tool Call
+
+```python
+from lightbox.integrations.moltbot import record_tool_call
+
+record_tool_call("search_web", {"query": "weather"}, {"result": "Sunny"})
+```
+
+### Wrap a Python Function
+
+```python
+from lightbox.integrations.moltbot import wrap_tool
+
+@wrap_tool("my_tool")
+def my_tool(query: str) -> dict:
+    return {"result": "..."}
+
+# Calling my_tool() now auto-records the execution
+result = my_tool("test query")
+```
+
+### Hook Class (Before/After)
+
+```python
+from lightbox.integrations.moltbot import LightboxMoltbotHook
+
+hook = LightboxMoltbotHook()
+
+# Before tool execution
+inv_id = hook.before_tool("search_web", {"query": "test"})
+
+# ... execute tool ...
+
+# After success
+hook.after_tool(inv_id, {"results": [...]})
+
+# Or after failure
+hook.after_tool_error(inv_id, error_type="TimeoutError", message="Timed out")
+```
+
+### Moltbot Session
+
+`MoltbotSession` extends Session with Moltbot-specific defaults:
+
+```python
+from lightbox.integrations.moltbot import MoltbotSession
+
+session = MoltbotSession()
+# actor defaults to "moltbot"
+# Automatically picks up MOLTBOT_SESSION_ID and MOLTBOT_AGENT_NAME env vars
+```
+
+### Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `MOLTBOT_SESSION_ID` | Auto-detect session ID |
+| `MOLTBOT_AGENT_NAME` | Auto-detect actor name |
+
+### Agent Skill
+
+An Agent Skill is available for Moltbot integration at `skills/lightbox-audit/`. Copy it to your skills directory to enable direct Moltbot usage.
+
+### Web Dashboard
+
+Launch the web GUI to browse sessions visually:
+
+```bash
+lightbox gui
+# or
+lightbox gui --port 8780 --no-browser
+```
+
 ## Planned Integrations
 
 | Framework | Status |
 |-----------|--------|
 | LangChain | Supported |
+| Moltbot | Supported |
 | LangGraph | Planned |
 | AutoGen | Planned |
 | CrewAI | Planned |
