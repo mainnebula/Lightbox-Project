@@ -10,6 +10,7 @@ Endpoints:
     GET  /api/sessions/<id>/events      Get events (supports ?since= for polling)
     POST /api/sessions/<id>/verify      Run integrity verification
     GET  /api/sessions/<id>/stream      SSE endpoint for real-time event updates
+    POST /api/record                    Record a tool call from an external service
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ try:
 except ImportError:
     FLASK_AVAILABLE = False
 
+from lightbox.integrations.moltbot import MoltbotSession, record_tool_call
 from lightbox.integrity import verify_session
 from lightbox.storage import (
     get_events_file,
@@ -165,6 +167,67 @@ def create_app() -> Any:
                 "X-Accel-Buffering": "no",
             },
         )
+
+    # Keep a cache of sessions so we reuse the same Session object per session_id,
+    # preserving the hash chain across requests.
+    _sessions: dict[str, MoltbotSession] = {}
+
+    @app.route("/api/record", methods=["POST"])
+    def api_record() -> Any:
+        """Record a tool call from an external service.
+
+        Expects JSON body:
+        {
+            "tool": "tool_name",
+            "input": {...},
+            "output": {...},
+            "session_id": "optional_session_id",
+            "status": "complete" | "error",
+            "error": {"type": "...", "message": "..."}  // optional
+        }
+        """
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Request body must be JSON"}), 400
+
+        tool = data.get("tool")
+        if not tool:
+            return jsonify({"error": "Missing required field: tool"}), 400
+
+        tool_input = data.get("input", {})
+        tool_output = data.get("output", {})
+        session_id = data.get("session_id")
+        status = data.get("status", "complete")
+        error = data.get("error")
+
+        if not isinstance(tool_input, dict):
+            tool_input = {"value": tool_input}
+        if not isinstance(tool_output, dict):
+            tool_output = {"value": tool_output}
+
+        # Reuse or create session
+        if session_id and session_id in _sessions:
+            session = _sessions[session_id]
+        else:
+            session = MoltbotSession(session_id=session_id)
+            _sessions[session.session_id] = session
+
+        try:
+            record_tool_call(
+                tool=tool,
+                input=tool_input,
+                output=tool_output,
+                status=status,
+                error=error,
+                session=session,
+            )
+            return jsonify({
+                "status": "recorded",
+                "session_id": session.session_id,
+                "tool": tool,
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     return app
 

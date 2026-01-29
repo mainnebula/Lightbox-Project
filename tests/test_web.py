@@ -155,6 +155,89 @@ class TestVerifyAPI:
         assert res.status_code == 404
 
 
+class TestRecordAPI:
+    """Tests for /api/record endpoint."""
+
+    def test_records_tool_call(self, client, temp_lightbox_dir):
+        res = client.post("/api/record", json={
+            "tool": "search_web",
+            "input": {"query": "weather"},
+            "output": {"result": "Sunny"},
+            "session_id": "test_record_api",
+        })
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert data["status"] == "recorded"
+        assert data["session_id"] == "test_record_api"
+        assert data["tool"] == "search_web"
+
+        events = read_events("test_record_api")
+        assert len(events) == 1
+        assert events[0].tool == "search_web"
+        assert events[0].status == "complete"
+
+    def test_records_multiple_to_same_session(self, client, temp_lightbox_dir):
+        for tool in ["tool_a", "tool_b", "tool_c"]:
+            client.post("/api/record", json={
+                "tool": tool,
+                "input": {"x": "1"},
+                "output": {"y": "2"},
+                "session_id": "test_multi_record",
+            })
+
+        events = read_events("test_multi_record")
+        assert len(events) == 3
+        assert [e.tool for e in events] == ["tool_a", "tool_b", "tool_c"]
+
+    def test_records_error_status(self, client, temp_lightbox_dir):
+        res = client.post("/api/record", json={
+            "tool": "failing_tool",
+            "input": {},
+            "output": {},
+            "session_id": "test_record_error",
+            "status": "error",
+            "error": {"type": "TimeoutError", "message": "Timed out"},
+        })
+        assert res.status_code == 200
+
+        events = read_events("test_record_error")
+        assert events[0].status == "error"
+        assert events[0].error == {"type": "TimeoutError", "message": "Timed out"}
+
+    def test_auto_generates_session_id(self, client, temp_lightbox_dir):
+        res = client.post("/api/record", json={
+            "tool": "some_tool",
+            "input": {},
+            "output": {},
+        })
+        data = json.loads(res.data)
+        assert data["status"] == "recorded"
+        assert data["session_id"].startswith("session_")
+
+    def test_rejects_missing_tool(self, client):
+        res = client.post("/api/record", json={"input": {}, "output": {}})
+        assert res.status_code == 400
+
+    def test_rejects_non_json(self, client):
+        res = client.post("/api/record", data="not json",
+                          content_type="text/plain")
+        assert res.status_code in (400, 415)
+
+    def test_hash_chain_valid_after_recording(self, client, temp_lightbox_dir):
+        for i in range(5):
+            client.post("/api/record", json={
+                "tool": f"tool_{i}",
+                "input": {"i": str(i)},
+                "output": {"ok": True},
+                "session_id": "test_chain",
+            })
+
+        res = client.post("/api/sessions/test_chain/verify")
+        data = json.loads(res.data)
+        assert data["valid"] is True
+        assert data["event_count"] == 5
+
+
 class TestStreamAPI:
     """Tests for /api/sessions/<id>/stream SSE endpoint."""
 
